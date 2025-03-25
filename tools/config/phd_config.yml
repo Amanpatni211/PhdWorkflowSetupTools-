@@ -1,0 +1,52 @@
+# PhD Workflow Configuration
+
+# Base paths
+paths:
+  root: ~/aman_projects/PhD
+  data: ~/aman_projects/PhD/data
+  projects: ~/aman_projects/PhD/projects
+  experiments: ~/aman_projects/PhD/experiments
+  papers: ~/aman_projects/PhD/papers
+  learning: ~/aman_projects/PhD/learning
+
+# GitHub configuration
+github:
+  username: Amanpatni211
+  email: # Add your email for git config
+  organization: # Optional organization name
+
+# AWS configuration
+aws:
+  default_region: us-east-1
+  default_bucket_prefix: phd-aman-
+  profile: default
+  use_metaflow: true
+  metaflow:
+    datastore: s3
+    metadata: service
+
+# Conda environments
+environments:
+  ML_exp:
+    description: Default environment for ML experiments
+    packages:
+      - numpy
+      - pandas
+      - matplotlib
+      - scikit-learn
+      - jupyter
+      - tensorflow
+      - pytorch
+  climate:
+    description: Environment for climate modeling
+    packages:
+      - numpy
+      - pandas
+      - xarray
+      - netcdf4
+      - cartopy
+      - jupyter
+
+# Tools configuration
+tools:
+  default_mode: experiment 
