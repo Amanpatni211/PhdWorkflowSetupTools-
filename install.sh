@@ -29,6 +29,17 @@ DEFAULT_DIR="$HOME_DIR/Documents"
 read -p "Parent directory for PhD folder [$DEFAULT_DIR]: " parent_dir
 parent_dir=${parent_dir:-$DEFAULT_DIR}
 
+# Expand tilde (~) to home directory if present
+if [[ "$parent_dir" == "~"* ]]; then
+    parent_dir="${parent_dir/#\~/$HOME_DIR}"
+fi
+
+# Ensure we're using an absolute path
+if [[ "$parent_dir" != /* && "$parent_dir" != [A-Za-z]:* ]]; then
+    # If it's not an absolute path, make it absolute based on current directory
+    parent_dir="$(pwd)/$parent_dir"
+fi
+
 # Set PHD_ROOT as the parent directory + /PhD
 PHD_ROOT="${parent_dir}/PhD"
 
