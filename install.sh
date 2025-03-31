@@ -82,16 +82,60 @@ SCRIPT_PATH="$PHD_ROOT/tools/scripts/phd_activate.sh"
 sed -i "s|PHD_ROOT=.*|PHD_ROOT=\"$PHD_ROOT\"|g" "$SCRIPT_PATH"
 
 # Add to shell config
-SHELL_CONFIG="$HOME_DIR/.bashrc"
-if [ -f "$HOME_DIR/.zshrc" ]; then
-    SHELL_CONFIG="$HOME_DIR/.zshrc"
-    echo "Zsh detected, using .zshrc"
+echo ""
+echo "Setting up shell integration..."
+
+# Determine the correct shell config file
+if [ -n "$BASH_VERSION" ]; then
+    SHELL_TYPE="bash"
+    SHELL_CONFIG="$HOME/.bashrc"
+    echo "Bash shell detected"
+elif [ -n "$ZSH_VERSION" ]; then
+    SHELL_TYPE="zsh"
+    SHELL_CONFIG="$HOME/.zshrc"
+    echo "Zsh shell detected"
+else
+    # Default to bashrc if we can't detect, but try zshrc if it exists
+    if [ -f "$HOME/.zshrc" ]; then
+        SHELL_TYPE="zsh"
+        SHELL_CONFIG="$HOME/.zshrc"
+        echo "Found .zshrc (shell type not detected)"
+    else
+        SHELL_TYPE="bash"
+        SHELL_CONFIG="$HOME/.bashrc"
+        echo "Defaulting to .bashrc (shell type not detected)"
+    fi
+fi
+
+echo "Using shell config file: $SHELL_CONFIG"
+
+# Check if the config file exists
+if [ ! -f "$SHELL_CONFIG" ]; then
+    echo "WARNING: Shell config file $SHELL_CONFIG does not exist"
+    echo "Creating it now..."
+    touch "$SHELL_CONFIG"
+    if [ ! -f "$SHELL_CONFIG" ]; then
+        echo "ERROR: Failed to create $SHELL_CONFIG"
+        echo "You will need to manually add the activation line to your shell config."
+    fi
 fi
 
 # Check if already in shell config
 ACTIVATION_LINE="source $PHD_ROOT/tools/scripts/phd_activate.sh"
-if grep -q "phd_activate.sh" "$SHELL_CONFIG"; then
-    echo "PhD workflow already in $SHELL_CONFIG"
+
+# More reliable check that handles different path formats
+if grep -F "phd_activate.sh" "$SHELL_CONFIG" >/dev/null 2>&1; then
+    echo "PhD workflow activation already found in $SHELL_CONFIG"
+    echo "Current line in $SHELL_CONFIG:"
+    grep -F "phd_activate.sh" "$SHELL_CONFIG"
+    
+    # Ask if they want to update it
+    read -p "Update to the new path? (y/n): " update_path
+    if [[ "$update_path" == "y" || "$update_path" == "Y" ]]; then
+        # Try to replace existing line
+        sed -i'.bak' -e "s|source .*phd_activate.sh.*|$ACTIVATION_LINE|g" "$SHELL_CONFIG"
+        echo "Updated activation path in $SHELL_CONFIG"
+    fi
 else
     echo ""
     echo "Adding activation script to $SHELL_CONFIG..."
@@ -102,10 +146,20 @@ else
     # Ask for confirmation before modifying shell config
     read -p "Proceed with adding to $SHELL_CONFIG? (y/n): " confirm_shell
     if [[ "$confirm_shell" == "y" || "$confirm_shell" == "Y" ]]; then
+        # Directly append to file
         echo "" >> "$SHELL_CONFIG"
         echo "# PhD Workflow" >> "$SHELL_CONFIG"
         echo "$ACTIVATION_LINE" >> "$SHELL_CONFIG"
-        echo "Successfully added activation script to $SHELL_CONFIG"
+        
+        # Verify it was added
+        if grep -F "$ACTIVATION_LINE" "$SHELL_CONFIG" >/dev/null 2>&1; then
+            echo "Successfully added activation script to $SHELL_CONFIG"
+        else
+            echo "WARNING: Failed to add activation script to $SHELL_CONFIG"
+            echo "Try adding it manually:"
+            echo ""
+            echo "echo \"$ACTIVATION_LINE\" >> $SHELL_CONFIG"
+        fi
     else
         echo ""
         echo "Shell configuration not modified."
@@ -113,9 +167,16 @@ else
         echo ""
         echo "  $ACTIVATION_LINE"
         echo ""
-        echo "Or you can run this line in your terminal whenever you need to use the tools."
+        echo "Or run this line directly in your terminal:"
+        echo ""
+        echo "  $ACTIVATION_LINE"
     fi
 fi
+
+# For immediate use without restarting the shell
+echo ""
+echo "To activate the PhD workflow tools in your current terminal, run:"
+echo "  $ACTIVATION_LINE"
 
 # Check for prerequisites
 echo "Checking prerequisites..."
