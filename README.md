@@ -27,6 +27,7 @@ cd PhdWorkflowSetupTools-
 
 2. Run the installation script:
 ```bash
+chmod +x install.sh
 ./install.sh
 ```
 
