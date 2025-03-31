@@ -74,7 +74,7 @@ phd_new ml_project --github --aws
 
 ```
 <Your Chosen PhD Root Directory>/
-├── experiments/      # Quick experiments and learning
+├── experiments/      # Quick experiment and learning
 ├── projects/         # Serious research projects
 ├── data/             # Shared datasets (create manually if needed)
 ├── papers/           # Research papers and writing (create manually if needed)
