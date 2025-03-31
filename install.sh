@@ -121,7 +121,16 @@ if [ ! -f "$SHELL_CONFIG" ]; then
 fi
 
 # Check if already in shell config
-ACTIVATION_LINE="source $PHD_ROOT/tools/scripts/phd_activate.sh"
+# Convert PHD_ROOT to use ~ if it's in the home directory
+if [[ "$PHD_ROOT" == "$HOME"* ]]; then
+    # Replace the home directory with ~
+    DISPLAY_PHD_ROOT="${PHD_ROOT/$HOME/\~}"
+    echo "Using ~ notation for home directory in shell config"
+else
+    DISPLAY_PHD_ROOT="$PHD_ROOT"
+fi
+
+ACTIVATION_LINE="source $DISPLAY_PHD_ROOT/tools/scripts/phd_activate.sh"
 
 # More reliable check that handles different path formats
 if grep -F "phd_activate.sh" "$SHELL_CONFIG" >/dev/null 2>&1; then
