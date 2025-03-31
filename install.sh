@@ -72,14 +72,59 @@ cp -r tools/scripts/* "$PHD_ROOT/tools/scripts/"
 cp -r tools/templates/* "$PHD_ROOT/tools/templates/"
 cp -r tools/config/* "$PHD_ROOT/tools/config/"
 
-# Make scripts executable
-chmod +x "$PHD_ROOT/tools/scripts/"*.sh
-chmod +x "$PHD_ROOT/tools/templates/"*/*.sh
-
 # Update paths in activation script
 echo "Configuring scripts..."
 SCRIPT_PATH="$PHD_ROOT/tools/scripts/phd_activate.sh"
-sed -i "s|PHD_ROOT=.*|PHD_ROOT=\"$PHD_ROOT\"|g" "$SCRIPT_PATH"
+echo "Updating path in $SCRIPT_PATH"
+echo "Before update:"
+head -n 5 "$SCRIPT_PATH"
+
+# Make sure the path in the script is set correctly, with proper quoting
+# This is crucial for the phd_activate.sh script to work correctly
+echo "Setting PHD_ROOT to: $PHD_ROOT"
+# Use perl for more reliable replacement
+if command -v perl >/dev/null 2>&1; then
+    perl -i -pe "s|PHD_ROOT=.*|PHD_ROOT=\"$PHD_ROOT\"|g" "$SCRIPT_PATH"
+else
+    # Fallback to sed with careful escaping
+    PHD_ROOT_ESCAPED=$(echo "$PHD_ROOT" | sed 's/[\/&]/\\&/g')
+    sed -i "s|PHD_ROOT=.*|PHD_ROOT=\"$PHD_ROOT_ESCAPED\"|g" "$SCRIPT_PATH"
+fi
+
+# Verify the update was successful
+echo "After update:"
+head -n 5 "$SCRIPT_PATH"
+
+# Double check PHD_ROOT is set correctly
+if ! grep -q "PHD_ROOT=\"$PHD_ROOT\"" "$SCRIPT_PATH"; then
+    echo "WARNING: Path update may have failed. Trying direct file edit..."
+    # Create a temporary file with the corrected content
+    echo "#!/bin/bash" > "${SCRIPT_PATH}.tmp"
+    echo "" >> "${SCRIPT_PATH}.tmp"
+    echo "# PhD workflow activation script" >> "${SCRIPT_PATH}.tmp"
+    echo "PHD_ROOT=\"$PHD_ROOT\"" >> "${SCRIPT_PATH}.tmp"
+    # Append the rest of the file starting from line 5
+    tail -n +5 "$SCRIPT_PATH" >> "${SCRIPT_PATH}.tmp"
+    # Replace the original with the corrected version
+    mv "${SCRIPT_PATH}.tmp" "$SCRIPT_PATH"
+    chmod +x "$SCRIPT_PATH"
+    
+    echo "Verification after direct edit:"
+    head -n 5 "$SCRIPT_PATH"
+    if ! grep -q "PHD_ROOT=\"$PHD_ROOT\"" "$SCRIPT_PATH"; then
+        echo "ERROR: Failed to update PHD_ROOT path in the activation script."
+        echo "Please manually edit $SCRIPT_PATH and set:"
+        echo "PHD_ROOT=\"$PHD_ROOT\""
+    else
+        echo "✅ Successfully updated PHD_ROOT path."
+    fi
+else
+    echo "✅ PHD_ROOT path updated successfully."
+fi
+
+# Make sure all scripts are executable
+chmod +x "$PHD_ROOT/tools/scripts/"*.sh
+chmod +x "$PHD_ROOT/tools/templates/"*/*.sh
 
 # Add to shell config
 echo ""
