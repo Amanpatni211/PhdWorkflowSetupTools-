@@ -61,6 +61,15 @@ phd_activate aws
 phd_new ml_project --github --aws
 ```
 
+### Environment Notes
+
+- **Experiment Mode**: When you use `phd_activate experiment`, the system will attempt to activate a Conda environment named `ML_exp` if it exists on your system. If this environment doesn't exist, it will continue with your current environment. You can create this environment manually with your preferred packages:
+  ```bash
+  conda create -n ML_exp python=3.9 numpy pandas matplotlib jupyter
+  ```
+
+- **Project Mode**: When creating a project with `phd_new`, you'll be prompted whether to create a dedicated Conda environment for that specific project.
+
 ## Folder Structure
 
 ```

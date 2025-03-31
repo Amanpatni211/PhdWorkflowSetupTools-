@@ -33,6 +33,7 @@ if [ "$CONDA_ACTIVATED" = false ]; then
         CONDA_ACTIVATED=true
     else
          echo "WARNING: Could not activate 'ML_exp' conda environment. Please ensure it exists or proceed with the base environment."
+         echo "      You can create it with: conda create -n ML_exp python=3.9 numpy pandas matplotlib jupyter"
     fi
 fi
 

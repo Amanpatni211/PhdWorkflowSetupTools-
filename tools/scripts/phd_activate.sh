@@ -43,7 +43,13 @@ phd_activate() {
         "experiment")
             echo "Activating experiment environment..."
             # Check if ML_exp exists, if not just continue
-            conda activate ML_exp 2>/dev/null || echo "ML_exp environment not found. Continuing without activation."
+            if conda env list | grep -q "ML_exp"; then
+                echo "Found 'ML_exp' conda environment, activating it..."
+                conda activate ML_exp 2>/dev/null
+            else
+                echo "Note: 'ML_exp' conda environment not found. Continuing with current environment."
+                echo "      You can create it with: conda create -n ML_exp python=3.9 numpy pandas matplotlib jupyter"
+            fi
             export PHD_MODE="experiment"
             export PHD_TEMPLATE="$TEMPLATES_DIR/experiment_template"
             ;;

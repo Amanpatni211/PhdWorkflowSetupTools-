@@ -1,32 +1,14 @@
 # PhD Workflow Configuration
 
-# Base paths
-paths:
-  root: ~/aman_projects/PhD
-  data: ~/aman_projects/PhD/data
-  projects: ~/aman_projects/PhD/projects
-  experiments: ~/aman_projects/PhD/experiments
-  papers: ~/aman_projects/PhD/papers
-  learning: ~/aman_projects/PhD/learning
+# NOTE: This file contains default configurations and examples. Some settings 
+# (particularly paths) are automatically configured during installation and don't
+# need to be modified here.
 
-# GitHub configuration
-github:
-  username: Amanpatni211
-  email: amanpatni211@gmail.com
-  organization: # Optional organization name
-
-# AWS configuration
-aws:
-  default_region: us-east-1
-  default_bucket_prefix: phd-aman-
-  profile: default
-  use_metaflow: true
-  metaflow:
-    datastore: s3
-    metadata: service
-
-# Conda environments
+# Default environments - Naming convention for Conda environments
+# The 'ML_exp' environment is attempted to be activated in experiment mode
 environments:
+  # You can create this environment manually:
+  # conda create -n ML_exp python=3.9 numpy pandas matplotlib jupyter tensorflow pytorch
   ML_exp:
     description: Default environment for ML experiments
     packages:
@@ -37,8 +19,9 @@ environments:
       - jupyter
       - tensorflow
       - pytorch
+  
   climate:
-    description: Environment for climate modeling
+    description: Optional environment for climate modeling
     packages:
       - numpy
       - pandas
@@ -46,6 +29,23 @@ environments:
       - netcdf4
       - cartopy
       - jupyter
+
+# GitHub configuration (Currently uses gh CLI authentication)
+# These settings are not actively used but serve as documentation
+github:
+  username: # Your GitHub username (populated by gh CLI)
+  email: # Your GitHub email (populated by gh CLI)
+  organization: # Optional organization name
+
+# AWS configuration (Used when AWS mode is activated)
+aws:
+  default_region: us-east-1
+  default_bucket_prefix: phd- # Bucket names will be prefixed with this
+  profile: default
+  use_metaflow: true
+  metaflow:
+    datastore: s3
+    metadata: service
 
 # Tools configuration
 tools:
