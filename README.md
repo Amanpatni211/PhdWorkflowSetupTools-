@@ -13,29 +13,37 @@ This toolset provides a standardized workflow for PhD research projects, helping
 
 - **Experiment Management**: Quickly create dated experiment directories with proper structure
 - **Project Organization**: Set up research projects with proper Python packaging
-- **GitHub Integration**: Automatic GitHub repository creation and management
+- **GitHub Integration**: Automatic GitHub repository creation and management (using GitHub CLI)
 - **AWS Integration**: Optional AWS setup with Metaflow for ML workflows
-- **Environment Management**: Conda environment handling for reproducible research
+- **Environment Management**: Conda environment handling for reproducible research (flexible detection)
 
 ## Installation
 
+1. Clone the repository:
 ```bash
-# Clone the repository
 git clone https://github.com/Amanpatni211/PhdWorkflowSetupTools-.git
 cd PhdWorkflowSetupTools-
+```
 
-# Run the installation script
+2. Run the installation script:
+```bash
 ./install.sh
 ```
 
-The installer will:
-1. Create the PhD directory structure in your home directory
-2. Copy the workflow tools to the appropriate locations
-3. Add the activation script to your shell configuration
+During installation, you'll be prompted to:
+1. Choose your preferred root directory for the PhD workflow (e.g., `~/aman/PhD` or any other location)
+2. The installer will create the directory structure, set up the tools, and add the activation script to your shell configuration (`.bashrc` or `.zshrc`).
 
 ## Quick Start
 
-After installation, open a new terminal or run `source ~/.bashrc` to load the tools. Then:
+After installation, open a new terminal or run:
+```bash
+source ~/.bashrc  # For bash
+# OR
+source ~/.zshrc   # For zsh
+```
+
+Then you can use the following commands:
 
 ```bash
 # For quick experiments
@@ -43,10 +51,12 @@ phd_activate experiment
 phd_new my_experiment
 
 # For serious projects with GitHub integration
+# (Requires GitHub CLI installed and authenticated: gh auth login)
 phd_activate project
 phd_new my_project --github
 
 # For AWS-integrated ML projects
+# (Requires AWS CLI installed and configured: aws configure)
 phd_activate aws
 phd_new ml_project --github --aws
 ```
@@ -54,81 +64,31 @@ phd_new ml_project --github --aws
 ## Folder Structure
 
 ```
-PhD/
+<Your Chosen PhD Root Directory>/
 ├── experiments/      # Quick experiments and learning
 ├── projects/         # Serious research projects
-├── data/             # Shared datasets
-├── papers/           # Research papers and writing
-├── learning/         # Learning materials and courses
-└── tools/            # Workflow tools and scripts
+├── data/             # Shared datasets (create manually if needed)
+├── papers/           # Research papers and writing (create manually if needed)
+├── learning/         # Learning materials and courses (create manually if needed)
+└── tools/            # Workflow tools and scripts (installed)
     ├── config/       # Configuration files
     ├── scripts/      # Workflow scripts
     └── templates/    # Project templates
 ```
 
-## Usage Details
-
-### Experiment Workflow
-
-Experiments are quick, exploratory work:
-
-```bash
-phd_activate experiment
-phd_new test_hypothesis
-```
-ps: go in bash -> command is <nano ~/.bashrc> -> paste the code -> save and exit (ctrl+x -> y -> enter)
-
-This creates:
-- A dated directory (e.g., `20250401_test_hypothesis/`)
-- Basic notebook structure
-- Data and results directories
-- Simple git initialization
-
-### Project Workflow
-
-Projects are serious, long-term research:
-
-```bash
-phd_activate project
-phd_new climate_model --github
-```
-
-This creates:
-- GitHub repository
-- Full Python package structure
-- Tests directory
-- Documentation setup
-- Proper environment configuration
-
-### AWS Integration
-
-For ML projects requiring cloud computing:
-
-```bash
-phd_activate aws
-phd_new ml_deployment --github --aws
-```
-
-This adds:
-- AWS credential templates
-- S3 bucket setup scripts
-- Metaflow integration
-- Deployment templates
-
 ## Prerequisites
 
 - Bash or Zsh shell
 - Git
-- Conda (for environment management)
-- GitHub CLI (for GitHub integration)
-- AWS CLI (for AWS integration, optional)
+- Conda (for environment management - the scripts attempt to auto-detect your Conda installation)
+- GitHub CLI (`gh`) (Required for GitHub integration. Install and run `gh auth login`)
+- AWS CLI (`aws`) (Required for AWS integration. Install and run `aws configure`)
 
 ## Configuration
 
-Edit the following files to customize your workflow:
-
-- `~/aman_projects/PhD/tools/config/phd_config.yml` - Main configuration
-- Templates in `~/aman_projects/PhD/tools/templates/` - Project templates
+- Main configuration for the tools is handled by the scripts based on the chosen root directory.
+- Project-specific configuration can be found within each generated project (e.g., `configs/default.yml`).
+- Templates used for new projects/experiments are in `<Your Chosen PhD Root Directory>/tools/templates/`.
 
 ## License
 

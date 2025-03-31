@@ -12,7 +12,7 @@ paths:
 # GitHub configuration
 github:
   username: Amanpatni211
-  email: # Add your email for git config
+  email: amanpatni211@gmail.com
   organization: # Optional organization name
 
 # AWS configuration

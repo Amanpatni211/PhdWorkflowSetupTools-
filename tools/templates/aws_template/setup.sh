@@ -9,19 +9,27 @@ echo "Setting up AWS project: $PROJECT_NAME"
 # Ask about conda environment
 read -p "Create a dedicated conda environment? (y/n): " CREATE_ENV
 if [[ "$CREATE_ENV" == "y" ]]; then
-    # Create conda environment specific to this project
-    if [ -f ~/miniconda3/etc/profile.d/conda.sh ]; then
-        source ~/miniconda3/etc/profile.d/conda.sh
-    elif [ -f /c/Users/Admin/miniconda3/etc/profile.d/conda.sh ]; then
-        source /c/Users/Admin/miniconda3/etc/profile.d/conda.sh 
+    # Try to source conda activation script
+    CONDA_BASE=$(conda info --base 2>/dev/null)
+    if [[ -n "$CONDA_BASE" && -f "$CONDA_BASE/etc/profile.d/conda.sh" ]]; then
+        source "$CONDA_BASE/etc/profile.d/conda.sh"
+        echo "Sourced conda.sh from $CONDA_BASE"
+    elif [[ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]]; then
+        source "$HOME/miniconda3/etc/profile.d/conda.sh"
+        echo "Sourced conda.sh from $HOME/miniconda3"
+    elif [[ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]]; then
+        source "$HOME/anaconda3/etc/profile.d/conda.sh"
+        echo "Sourced conda.sh from $HOME/anaconda3"
     else
-        echo "WARNING: conda.sh not found. Trying to use conda directly."
+        echo "WARNING: Could not automatically source conda.sh. Assuming 'conda' command is available."
     fi
     
+    echo "Creating conda environment: $ENV_NAME ..."
     conda create -y -n $ENV_NAME python=3.9
     conda activate $ENV_NAME
     
     # Install AWS dependencies
+    echo "Installing dependencies..."
     conda install -y numpy pandas matplotlib jupyter ipykernel
     pip install boto3 awscli metaflow sagemaker
 
@@ -118,22 +126,25 @@ cat > README.md << EOL
    cp .aws/credentials.template .aws/credentials
    # Edit .aws/credentials with your AWS access keys
    \`\`\`
-2. Set up S3 buckets:
+2. Set up S3 buckets (edit region/bucket names if needed):
    \`\`\`bash
    ./setup_aws.sh
    \`\`\`
 
 ## Environment Setup
-\`\`\`bash
-# Clone the repository
-git clone https://github.com/Amanpatni211/$PROJECT_NAME.git
-cd $PROJECT_NAME
 
-# Option 1: Create and activate conda environment
+*This setup assumes you have already cloned the repository.*
+
+\`\`\`bash
+cd $PROJECT_NAME # Navigate to project directory if not already there
+
+# Option 1: Create and activate conda environment (Recommended)
+# (Run this if you didn't create the environment during initial setup)
 conda env create -f environment.yml
 conda activate $ENV_NAME
 
 # Option 2: Install in existing environment
+# Ensure your current environment has the necessary packages
 pip install -e .
 pip install -r requirements.txt
 \`\`\`
@@ -191,20 +202,38 @@ if __name__ == '__main__':
 \`\`\`
 
 ## License
-Copyright (c) $(date +%Y) [Your Name]
+Copyright (c) $(date +%Y) [Your Name/Organization]
 EOL
 
-# Initialize git repository
-git init
-echo "data/" >> .gitignore
-echo "results/" >> .gitignore
-echo ".ipynb_checkpoints/" >> .gitignore
-echo "__pycache__/" >> .gitignore
-echo "*.pyc" >> .gitignore
-echo ".aws/credentials" >> .gitignore
-echo "*.egg-info/" >> .gitignore
-echo ".vscode/" >> .gitignore
-echo ".idea/" >> .gitignore
+# Initialize git repository if it doesn't exist (for local-only scenario)
+if [ ! -d .git ]; then
+    git init
+    echo "Initialized local git repository."
+fi
+
+# Add common ignores to .gitignore
+echo "
+# Standard Python ignores
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Data & Results
+data/
+results/
+
+# IDE & Environment specific
+.vscode/
+.idea/
+.ipynb_checkpoints/
+
+# Secrets
+.aws/credentials
+*.env" >> .gitignore
 
 # Create config template
 mkdir -p configs
@@ -224,15 +253,26 @@ cat > setup_aws.sh << EOL
 #!/bin/bash
 echo "Setting up AWS resources for $PROJECT_NAME..."
 
-# Create S3 buckets
-aws s3 mb s3://phd-$PROJECT_NAME-data
-aws s3 mb s3://phd-$PROJECT_NAME-results
-aws s3 mb s3://phd-$PROJECT_NAME-metaflow
+# Load config
+REGION=$(grep 'region:' configs/default.yml | cut -d' ' -f2)
+DATA_BUCKET=$(grep 's3_bucket:' configs/default.yml | cut -d' ' -f2)
+METAFLOW_BUCKET=$(grep 'METAFLOW_S3_BUCKET_NAME:' .metaflow/config.json | cut -d'"' -f4)
+RESULTS_BUCKET="phd-$PROJECT_NAME-results" # Define results bucket name
 
-echo "AWS S3 buckets created"
+echo "Using region: $REGION"
+echo "Data bucket: $DATA_BUCKET"
+echo "Metaflow bucket: $METAFLOW_BUCKET"
+echo "Results bucket: $RESULTS_BUCKET"
+
+# Create S3 buckets
+aws s3 mb s3://$DATA_BUCKET --region $REGION
+aws s3 mb s3://$RESULTS_BUCKET --region $REGION
+aws s3 mb s3://$METAFLOW_BUCKET --region $REGION
+
+echo "AWS S3 buckets created (or already exist)."
 
 # Optional: Configure Metaflow to use AWS 
-metaflow configure aws
+# metaflow configure aws # Usually done once globally
 EOL
 chmod +x setup_aws.sh
 
@@ -240,32 +280,48 @@ chmod +x setup_aws.sh
 mkdir -p src/$PROJECT_NAME/cloud
 cat > src/$PROJECT_NAME/cloud/example_flow.py << EOL
 """Example Metaflow workflow."""
-from metaflow import FlowSpec, step, S3, batch, conda_base
+from metaflow import FlowSpec, step, S3, batch, conda_base, Parameter
 
 @conda_base(libraries={'scikit-learn': '1.0.2', 'pandas': '1.4.1'})
 class ${ENV_NAME}Flow(FlowSpec):
     """
     A simple Metaflow for $PROJECT_NAME.
     
-    Run with:
-    python -m src.$PROJECT_NAME.cloud.example_flow run
+    Run locally:
+    python src/$PROJECT_NAME/cloud/example_flow.py run
     
     Run on AWS Batch:
-    python -m src.$PROJECT_NAME.cloud.example_flow run --with batch
+    python src/$PROJECT_NAME/cloud/example_flow.py --with batch run
     """
     
+    data_size = Parameter('data_size', default=100, type=int, help='Size of the random dataset')
+
     @step
     def start(self):
-        """Start the flow."""
+        """Generate sample data."""
         import numpy as np
-        self.data = np.random.random(10)
-        self.next(self.process)
+        self.data = np.random.rand(self.data_size, 5)
+        self.labels = (np.sum(self.data, axis=1) > 2.5).astype(int)
+        print(f"Generated data with shape: {self.data.shape}")
+        self.next(self.train_model)
+        
+    @batch(cpu=2, memory=4000) # Decorator to run this step on AWS Batch
+    @step
+    def train_model(self):
+        """Train a simple model."""
+        from sklearn.linear_model import LogisticRegression
+        self.model = LogisticRegression()
+        self.model.fit(self.data, self.labels)
+        print(f"Model trained: {self.model}")
+        self.next(self.evaluate_model)
         
     @step
-    def process(self):
-        """Process the data."""
-        import numpy as np
-        self.processed_data = self.data * 2
+    def evaluate_model(self):
+        """Evaluate the model (example)."""
+        from sklearn.metrics import accuracy_score
+        predictions = self.model.predict(self.data)
+        self.accuracy = accuracy_score(self.labels, predictions)
+        print(f"Model accuracy: {self.accuracy:.3f}")
         self.next(self.store_results)
         
     @step
@@ -273,124 +329,23 @@ class ${ENV_NAME}Flow(FlowSpec):
         """Store results to S3."""
         import pickle
         # Store to S3 when running on AWS
+        results = {
+            'accuracy': self.accuracy,
+            'model': self.model
+        }
         with S3(run=self) as s3:
-            s3.put("results.pkl", pickle.dumps(self.processed_data))
+            results_path = f"results/run_{self.run_id}_results.pkl"
+            s3.put(results_path, pickle.dumps(results))
+            print(f"Results stored to S3 at: {s3.path(results_path)}")
         self.next(self.end)
         
     @step
     def end(self):
         """End the flow."""
-        print("Flow complete!")
+        print("Flow finished!")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     ${ENV_NAME}Flow()
 EOL
 
-# Create a simple AWS utility module
-cat > src/$PROJECT_NAME/cloud/aws_utils.py << EOL
-"""AWS utility functions."""
-import os
-import boto3
-import logging
-
-logger = logging.getLogger(__name__)
-
-def get_s3_client():
-    """Get a boto3 S3 client."""
-    return boto3.client('s3')
-
-def upload_to_s3(local_path, bucket, s3_key):
-    """Upload a file to S3.
-    
-    Args:
-        local_path (str): Local file path
-        bucket (str): S3 bucket name
-        s3_key (str): S3 object key
-    """
-    s3 = get_s3_client()
-    try:
-        s3.upload_file(local_path, bucket, s3_key)
-        logger.info(f"Uploaded {local_path} to s3://{bucket}/{s3_key}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to upload {local_path}: {e}")
-        return False
-
-def download_from_s3(bucket, s3_key, local_path):
-    """Download a file from S3.
-    
-    Args:
-        bucket (str): S3 bucket name
-        s3_key (str): S3 object key
-        local_path (str): Local file path
-    """
-    s3 = get_s3_client()
-    try:
-        s3.download_file(bucket, s3_key, local_path)
-        logger.info(f"Downloaded s3://{bucket}/{s3_key} to {local_path}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to download s3://{bucket}/{s3_key}: {e}")
-        return False
-EOL
-
-# Create notebook for AWS exploration
-mkdir -p notebooks
-cat > notebooks/01_aws_exploration.ipynb << EOL
-{
- "cells": [
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "# $PROJECT_NAME: AWS Exploration\n",
-    "Created: $(date)"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "source": [
-    "import sys\n",
-    "sys.path.append(\"..\")\n",
-    "\n",
-    "import boto3\n",
-    "import pandas as pd\n",
-    "import numpy as np\n",
-    "import matplotlib.pyplot as plt\n",
-    "\n",
-    "# Import project modules\n",
-    "from src.$PROJECT_NAME.cloud import aws_utils\n",
-    "\n",
-    "%matplotlib inline"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "source": [
-    "# Connect to AWS services\n",
-    "s3 = boto3.client('s3')\n",
-    "\n",
-    "# List buckets\n",
-    "response = s3.list_buckets()\n",
-    "for bucket in response['Buckets']:\n",
-    "    print(bucket['Name'])"
-   ]
-  }
- ],
- "metadata": {
-  "kernelspec": {
-   "display_name": "Python 3",
-   "language": "python",
-   "name": "python3"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 4
-}
-EOL
-
-echo "AWS Project setup complete!" 
+echo "AWS project setup complete!" 

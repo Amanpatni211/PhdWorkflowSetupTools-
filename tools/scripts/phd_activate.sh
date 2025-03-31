@@ -20,13 +20,23 @@ phd_activate() {
         return 1
     fi
 
-    # Source conda - fix for WSL2
-    if [ -f ~/miniconda3/etc/profile.d/conda.sh ]; then
-        source ~/miniconda3/etc/profile.d/conda.sh
-    elif [ -f /mnt/c/Users/Admin/miniconda3/etc/profile.d/conda.sh ]; then
-        source /mnt/c/Users/Admin/miniconda3/etc/profile.d/conda.sh
+    # Try to source conda activation script
+    CONDA_BASE=$(conda info --base 2>/dev/null)
+    if [[ -n "$CONDA_BASE" && -f "$CONDA_BASE/etc/profile.d/conda.sh" ]]; then
+        # If conda info --base works and script exists
+        source "$CONDA_BASE/etc/profile.d/conda.sh"
+        echo "Sourced conda.sh from $CONDA_BASE"
+    elif [[ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]]; then
+        # Fallback: Try miniconda3
+        source "$HOME/miniconda3/etc/profile.d/conda.sh"
+        echo "Sourced conda.sh from $HOME/miniconda3"
+    elif [[ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]]; then
+        # Fallback: Try anaconda3
+        source "$HOME/anaconda3/etc/profile.d/conda.sh"
+        echo "Sourced conda.sh from $HOME/anaconda3"
     else
-        echo "WARNING: conda.sh not found. Trying to use conda directly."
+        # Assume conda init ran or conda is directly callable
+        echo "WARNING: Could not automatically source conda.sh. Assuming 'conda' command is available."
     fi
     
     case $1 in
@@ -116,16 +126,34 @@ phd_new() {
                 
                 # Check if GitHub CLI is installed
                 if ! command -v gh &> /dev/null; then
-                    echo "GitHub CLI not found. Install with: sudo apt install gh"
+                    echo "GitHub CLI not found. Install with: sudo apt install gh or brew install gh"
                     echo "Then authenticate with: gh auth login"
                     return 1
                 fi
                 
+                # Get GitHub username
+                GH_USER=$(gh api user --jq .login 2>/dev/null)
+                if [ -z "$GH_USER" ]; then
+                    echo "Error: Could not get GitHub username. Ensure you are logged in with 'gh auth login'."
+                    return 1
+                fi
+                echo "Using GitHub user: $GH_USER"
+
                 # Create GitHub repo
-                gh repo create "Amanpatni211/$NAME" --private
+                gh repo create "$GH_USER/$NAME" --private
+                if [ $? -ne 0 ]; then
+                    echo "Error: Failed to create GitHub repository. Check permissions or if repo already exists."
+                    return 1
+                fi
                 
                 # Clone the repo
-                git clone "https://github.com/Amanpatni211/$NAME.git" "$TARGET_DIR"
+                git clone "https://github.com/$GH_USER/$NAME.git" "$TARGET_DIR"
+                if [ $? -ne 0 ]; then
+                    echo "Error: Failed to clone the repository."
+                    # Attempt cleanup of potentially created remote repo
+                    # gh repo delete "$GH_USER/$NAME" --yes 2>/dev/null
+                    return 1
+                fi
                 
                 # Choose the template based on AWS flag
                 TEMPLATE_TO_USE="$PHD_TEMPLATE"
@@ -134,16 +162,18 @@ phd_new() {
                     TEMPLATE_TO_USE="$TEMPLATES_DIR/aws_template"
                 fi
                 
-                # Copy template files
-                cp -r "$TEMPLATE_TO_USE"/* "$TARGET_DIR"
+                # Copy template files (avoiding .git)
+                rsync -av --exclude='.git' "$TEMPLATE_TO_USE/" "$TARGET_DIR/"
                 
                 # Run setup script
                 cd "$TARGET_DIR"
-                bash setup.sh
+                if [ -f setup.sh ]; then
+                  bash setup.sh || echo "Warning: setup.sh failed."
+                fi
                 
                 # Commit template files
                 git add .
-                git commit -m "Initial project setup"
+                git commit -m "Initial project setup from template"
                 git push
             else
                 # Local only
@@ -160,7 +190,15 @@ phd_new() {
                 
                 # Run setup script
                 cd "$TARGET_DIR"
-                bash setup.sh
+                if [ -f setup.sh ]; then
+                  bash setup.sh || echo "Warning: setup.sh failed."
+                fi
+                # Initialize local git repo if not using GitHub
+                if [ ! -d .git ]; then
+                    git init
+                    git add .
+                    git commit -m "Initial project setup"
+                fi
             fi
             ;;
         *)
@@ -169,7 +207,7 @@ phd_new() {
             ;;
     esac
     
-    echo "Project created successfully. You can now open it in your editor."
+    echo "Project created successfully. You can now 'cd $TARGET_DIR' and open it in your editor."
 }
 
 # Export functions
