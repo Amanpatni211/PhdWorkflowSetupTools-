@@ -5,38 +5,43 @@ echo "PhD Workflow Tools Installer"
 echo "==========================="
 echo ""
 
-# Detect OS and set paths accordingly
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    HOME_DIR="$HOME"
-    IS_WSL=$(uname -r | grep -i "microsoft" || true)
-    if [[ -n "$IS_WSL" ]]; then
-        echo "WSL detected. Using Windows paths."
-        WIN_USER=$(cmd.exe /c echo %USERNAME% 2>/dev/null | tr -d '\r')
-        PHD_ROOT="/mnt/c/Users/$WIN_USER/aman_projects/PhD"
-    else
-        PHD_ROOT="$HOME/aman_projects/PhD"
-    fi
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-    # Mac OSX
-    HOME_DIR="$HOME"
-    PHD_ROOT="$HOME/aman_projects/PhD"
-elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
-    # Windows with Git Bash or similar
+# Ask user for the directory where they want to create the PhD folder
+echo "Please enter the full path where you want to create your PhD workflow directory."
+echo "For example:"
+echo "  - On Windows: C:/Users/YourName/Documents"
+echo "  - On Linux/WSL: /home/username or ~/Documents"
+echo "  - On macOS: /Users/username or ~/Documents"
+echo ""
+echo "We will create a 'PhD' folder in your specified location with the required structure."
+echo ""
+
+# Determine the user's home directory regardless of OS
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
     HOME_DIR=$(cygpath -u "$USERPROFILE")
-    PHD_ROOT="$HOME_DIR/aman_projects/PhD"
 else
-    echo "Unsupported OS: $OSTYPE"
-    echo "Please manually install the tools."
-    exit 1
+    HOME_DIR="$HOME"
 fi
 
-# Allow custom installation path
-read -p "Installation path [$PHD_ROOT]: " custom_path
-if [ -n "$custom_path" ]; then
-    PHD_ROOT=$custom_path
-fi
+# Default suggestion
+DEFAULT_DIR="$HOME_DIR/Documents"
 
-echo "Installing PhD Workflow Tools to: $PHD_ROOT"
+# Get the parent directory from the user
+read -p "Parent directory for PhD folder [$DEFAULT_DIR]: " parent_dir
+parent_dir=${parent_dir:-$DEFAULT_DIR}
+
+# Set PHD_ROOT as the parent directory + /PhD
+PHD_ROOT="${parent_dir}/PhD"
+
+# Remove any double slashes
+PHD_ROOT=$(echo "$PHD_ROOT" | sed 's|//|/|g')
+
+echo ""
+echo "Will create PhD workflow structure at: $PHD_ROOT"
+read -p "Continue? (y/n): " confirm
+if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+    echo "Installation cancelled."
+    exit 0
+fi
 
 # Create directory structure
 echo "Creating directory structure..."
@@ -73,13 +78,32 @@ if [ -f "$HOME_DIR/.zshrc" ]; then
 fi
 
 # Check if already in shell config
+ACTIVATION_LINE="source $PHD_ROOT/tools/scripts/phd_activate.sh"
 if grep -q "phd_activate.sh" "$SHELL_CONFIG"; then
     echo "PhD workflow already in $SHELL_CONFIG"
 else
-    echo "Adding to $SHELL_CONFIG..."
-    echo "" >> "$SHELL_CONFIG"
-    echo "# PhD Workflow" >> "$SHELL_CONFIG"
-    echo "source $PHD_ROOT/tools/scripts/phd_activate.sh" >> "$SHELL_CONFIG"
+    echo ""
+    echo "Adding activation script to $SHELL_CONFIG..."
+    echo "The following line will be added:"
+    echo "  $ACTIVATION_LINE"
+    echo ""
+    
+    # Ask for confirmation before modifying shell config
+    read -p "Proceed with adding to $SHELL_CONFIG? (y/n): " confirm_shell
+    if [[ "$confirm_shell" == "y" || "$confirm_shell" == "Y" ]]; then
+        echo "" >> "$SHELL_CONFIG"
+        echo "# PhD Workflow" >> "$SHELL_CONFIG"
+        echo "$ACTIVATION_LINE" >> "$SHELL_CONFIG"
+        echo "Successfully added activation script to $SHELL_CONFIG"
+    else
+        echo ""
+        echo "Shell configuration not modified."
+        echo "To manually activate the PhD workflow tools, add this line to your shell config file:"
+        echo ""
+        echo "  $ACTIVATION_LINE"
+        echo ""
+        echo "Or you can run this line in your terminal whenever you need to use the tools."
+    fi
 fi
 
 # Check for prerequisites
@@ -116,8 +140,19 @@ echo "Installation complete! 🎉"
 echo ""
 echo "To get started:"
 echo "1. Open a new terminal or run: source $SHELL_CONFIG"
-echo "2. Run: phd_activate experiment"
-echo "3. Run: phd_new my_first_experiment"
+echo "   (This loads the PhD workflow tools into your current session)"
+echo ""
+echo "2. Activate the environment you want to work with:"
+echo "   phd_activate experiment   (For quick experiments)"
+echo "   phd_activate project      (For long-term research projects)"
+echo "   phd_activate aws          (For AWS-integrated ML projects)"
+echo ""
+echo "3. Create a new project/experiment:"
+echo "   phd_new my_first_experiment"
+echo "   phd_new my_research_project --github  (Requires GitHub CLI setup)"
+echo ""
+echo "Your PhD workflow structure is ready at:"
+echo "  $PHD_ROOT"
 echo ""
 echo "For detailed documentation, visit:"
 echo "https://github.com/Amanpatni211/PhdWorkflowSetupTools-" 
